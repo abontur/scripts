@@ -16,7 +16,7 @@ for zone in "${zones[@]}"; do
         --context sell-dmz-staging\
         -n $service \
         -l topology.kubernetes.io/zone=${zone},role=http \
-        get pods | wc -l)
+        get pods 2>/dev/null | tail -n +2 | wc -l)
     sum=$(( $sum+${tmp} ))
     echo "${zone} = ${tmp}" 
 done

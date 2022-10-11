@@ -41,7 +41,7 @@ function extract_ver_from_deployment() {
 
 if [ $# -gt 0 ]; then
     if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then help && exit 0; fi
-    services=$*
+    services=("$@")
 else
     # Download latest service list from `sell-jsonnet-toolkit
     curl -fH "Authorization: token $HOMEBREW_GITHUB_API_TOKEN" \

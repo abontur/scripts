@@ -1,0 +1,29 @@
+#!/bin/bash
+#set -euo pipefail
+#IFS=$'\n\t'
+
+saml2aws login
+
+export ASG_NAME=$1
+
+export INSTANCES_IDS_LIST=$( aws --profile saml \
+    autoscaling describe-auto-scaling-instances \
+    --query 'AutoScalingInstances[?AutoScalingGroupName==`'$ASG_NAME'`].[InstanceId]' \
+    --output text | paste -sd' ' -
+    )
+
+export INSTANCE=$(echo "${INSTANCES_IDS_LIST}" | cut -f 1 -w)
+echo
+echo "Draining instance: $INSTANCE"
+echo
+
+goship ssh "$INSTANCE" -u ubuntu -c "nomad node eligibility -disable -self && nomad node drain -enable -self"
+
+export INSTANCES_IDS_LIST=$(aws --profile saml autoscaling describe-auto-scaling-instances --query 'AutoScalingInstances[?AutoScalingGroupName==`'$ASG_NAME'`].[InstanceId]' --output text | paste -sd' ' -)
+
+aws --profile saml autoscaling set-instance-protection --instance-ids $(echo $INSTANCES_IDS_LIST) --auto-scaling-group-name $ASG_NAME --protected-from-scale-in
+aws --profile saml autoscaling set-instance-protection --instance-ids $INSTANCE --auto-scaling-group-name $ASG_NAME --no-protected-from-scale-in
+
+export NUMBER=$(aws --profile saml autoscaling describe-auto-scaling-groups --auto-scaling-group-name $ASG_NAME --query 'AutoScalingGroups[*].DesiredCapacity' --output text)
+
+aws --profile saml autoscaling set-desired-capacity --auto-scaling-group-name $ASG_NAME --desired-capacity $(($NUMBER-1))

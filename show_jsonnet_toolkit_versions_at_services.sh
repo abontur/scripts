@@ -12,6 +12,10 @@ rm -rf $tmpDir 2> /dev/null
 [[ ! -e $deployment_version_dir ]] && mkdir -p $deployment_version_dir
 [[ ! -e $vendirs_paths ]] && mkdir -p "$vendirs_paths"
 
+function help() {
+    echo This tool can be used to check version of sell-jsonnet-toolkit
+}
+
 function downloadFromGithub() {
     baseURL='https://raw.githubusercontent.com'
     service=$1
@@ -51,8 +55,6 @@ else
     services=($(sed -nE "s|.*{ repository: '(.*)'.*|\1|p" "$vendirs_paths"/sell-jsonnet-toolkit))
 fi
 
-echo "| Service | Repo Version | Deployed Version |" > "$tmpDir"/ver_per_service
-
 echo 'Fetching files from repos and from deployments...'
 for service in "${services[@]}"; do
     downloadFromGithub $service "master/vendir.yml" &
@@ -68,15 +70,17 @@ done
 # done
 wait
 
+FORMAT="%-45s %-25b %s\n"
+printf "$FORMAT" "Service" "Repo Version" "Deployed Version"
 # Iterate througth services list, download vendir.yml,
 # parse it and show the current version of sell-jsonnet-toolkit
 for service in "${services[@]}"; do
 
     ver=$(yq '.directories[].contents[].git.ref' "$vendirs_paths"/"${service#zendesk/}")
     deploy_ver=$(cat $deployment_version_dir/${service#zendesk/})
-    echo "| $service | $ver | $deploy_ver |" >> "$tmpDir"/ver_per_service
+    deploy_ver=$([[ -z $deploy_ver ]] && echo "Not Found" || echo $deploy_ver)
+
+    COLOR=$([[ $ver == $deploy_ver ]] && echo "\e[32m" || echo "\e[31m")
+    printf "$FORMAT\e[0m" "$service" "$COLOR$ver" "$deploy_ver"
 
 done
-
-column -t -s "|" "$tmpDir"/ver_per_service
-

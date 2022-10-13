@@ -32,13 +32,12 @@ function downloadFromGithub() {
 
 function extract_ver_from_deployment() {
     service=${1#zendesk/}
-    # echo kubectl --as admin --as-group system:masters --context sell-dmz-staging --namespace $service describe deployment "$service"
     kubectl \
         --as admin \
         --as-group system:masters \
         --context sell-dmz-staging \
         --namespace $service \
-        describe deployment "$service" \
+        describe deployment "$service" 2> /dev/null \
         | sed -nE "s|^Annotations.*sell_jsonnet_toolkit_version\": \"(.*)\"}|\1|p" \
         > "$deployment_version_dir/${service}" || return 0
 }

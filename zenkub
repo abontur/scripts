@@ -1,0 +1,47 @@
+#!/bin/bash
+IFS=$'\n\t'
+
+version='v0.0.1'
+describe=1
+
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+    case $1 in
+        -V | --version )
+        echo $version
+        exit
+        ;;
+        -d | --describe )
+        shift; describe=$1
+        ;;
+        *) echo "There is no such an option"; exit 1
+    esac
+done
+
+service=$1
+shift
+
+function zen() {
+    kubectl \
+        --as admin \
+        --as-group system:masters \
+        --context sell-dmz-staging \
+        --namespace $service \
+        "$@"
+}
+zen "$@"
+
+if [[ $describe -eq 0 ]]; then 
+    printf "%10s\n" "${deployments[0]}"
+    unset deployments[0]
+    i=1
+    for deploy in "${deployments[@]}"; do
+        printf "%d. %s\n" $i "${deploy}"
+        i=$(( i + 1 ))
+    done
+    echo "What do you want to describe?"
+    read ans
+
+    pod=$(echo ${deployments[$ans]} | cut -f 1 -w)
+        zen describe pod ${pod}
+fi
+

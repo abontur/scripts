@@ -1,25 +1,12 @@
 #!/bin/bash
 IFS=$'\n\t'
 
-version='v0.0.1'
+# Config part ========================================
+version='v0.1.0'
 describe=1
+tmp_output=$(mktemp)
 
-while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
-    case $1 in
-        -V | --version )
-        echo $version
-        exit
-        ;;
-        -d | --describe )
-        shift; describe=$1
-        ;;
-        *) echo "There is no such an option"; exit 1
-    esac
-done
-
-service=$1
-shift
-
+# Functions ========================================
 function zen() {
     kubectl \
         --as admin \
@@ -28,20 +15,45 @@ function zen() {
         --namespace $service \
         "$@"
 }
-zen "$@"
 
-if [[ $describe -eq 0 ]]; then 
-    printf "%10s\n" "${deployments[0]}"
-    unset deployments[0]
-    i=1
-    for deploy in "${deployments[@]}"; do
-        printf "%d. %s\n" $i "${deploy}"
+function describe() {
+    ## Determine what we want to describe eg.: 'deployment' || 'pod'
+    kind_of_describe=$1
+
+    echo $tmp_output
+    i=0
+    while read line; do
+        printf "%u. %10s\n" $i "$line"
         i=$(( i + 1 ))
-    done
+    done < $tmp_output
+
     echo "What do you want to describe?"
     read ans
+    # [[ $ans -gt i ]] && echo "Wrong number"; exit 1 
+    choice=$(head -n $(( ans + 1 )) $tmp_output | tail -n 1)
+    name=$( echo $choice | cut -f 1 -w)
+    kubectl --context sell-dmz-staging --namespace $service describe $kind_of_describe $name
+}
 
-    pod=$(echo ${deployments[$ans]} | cut -f 1 -w)
-        zen describe pod ${pod}
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+    case $1 in
+        -V | --version )
+        echo $version
+        exit
+        ;;
+        -d | --describe )
+        shift; describe=0
+        ;;
+        *) echo "There is no such an option"; exit 1
+    esac
+done
+
+service=$1
+shift
+
+if [[ $describe -eq 0 ]]; then
+    zen "$@" > $tmp_output
+    describe ${2%s}
+else
+    zen "$@"
 fi
-
